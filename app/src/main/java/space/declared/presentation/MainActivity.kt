@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -35,6 +37,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 import space.declared.presentation.theme.TimeRememberedTheme
+import java.time.temporal.ChronoUnit
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,96 +67,69 @@ fun WearApp() {
 private val hourFormatter = DateTimeFormatter.ofPattern("H")
 private const val TAG = "SpiralDebug" // For Logcat
 
+/**
+ * Calculates the rotation angle for the spiral's tip to point at the given hour
+ * on a standard clock face.
+ *
+ * @param hour24 The hour in 24-hour format (0-23).
+ * @return The angle in radians.
+ */
+fun calculateAngleForHour(hour24: Int): Float {
+    val displayHour = when {
+        hour24 == 0 || hour24 == 12 -> 12 // Midnight (0h) and Noon (12h) are '12' on the clock
+        hour24 > 12 -> hour24 % 12
+        else -> hour24
+    }
+
+    val angle = (displayHour * PI.toFloat() / 6f) - (PI.toFloat() / 2f)
+
+    Log.d(TAG, "calculateAngleForHour: hour24=$hour24, displayHour=$displayHour, angleRad=$angle")
+    return angle
+}
+
 @Composable
 fun RotatingSpiralWithHour() {
     val spiralColor = MaterialTheme.colors.primary
     val textColor = MaterialTheme.colors.onBackground
 
-    var currentRotationAngle by remember { mutableStateOf(0f) }
-    var currentHourText by remember { mutableStateOf(LocalTime.now().format(hourFormatter)) }
+    var currentRotationAngle by remember {
+        mutableFloatStateOf(calculateAngleForHour(LocalTime.now().hour))
+    }
+
+    var currentHourText by remember {
+        mutableStateOf(LocalTime.now().format(hourFormatter))
+    }
+
+    var lastRotatedHour by remember {
+        mutableIntStateOf(LocalTime.now().hour)
+    }
 
     // --- Simplified Rotation Logic ---
     LaunchedEffect(Unit) {
-        Log.d(TAG, "Simplified rotation effect started.")
-        var frameCount = 0
-        while (true) {
-            delay(16) // Aim for roughly 60 FPS, ~16ms per frame
-            currentRotationAngle = (currentRotationAngle + 0.01f) % (2f * PI.toFloat())
-            // Optional: Log every few frames to avoid spamming Logcat too much
-            if (frameCount % 60 == 0) { // Log once per second if 60fps
-                Log.d(TAG, "Simplified currentRotationAngle: $currentRotationAngle")
-            }
-            frameCount++
-        }
-    }
-    // --- End of Simplified Rotation Logic ---
+        Log.d(TAG, "Hourly update effect started. Initial hour: ${LocalTime.now().hour}")
 
-    /*
-    // Original withFrameNanos rotation logic (commented out for test)
-    LaunchedEffect(Unit) {
-        Log.d(TAG, "withFrameNanos rotation effect started.")
-        val rotationStartTime = withFrameNanos { it }
-        Log.d(TAG, "rotationStartTime: $rotationStartTime")
-        var frameCount = 0
-        while (true) {
-            withFrameNanos { frameTimeNanos ->
-                val elapsedTimeNanos = frameTimeNanos - rotationStartTime
-                val rotationSpeedFactor = 10_000_000_000f
-                currentRotationAngle = (elapsedTimeNanos.toFloat() / rotationSpeedFactor) * (2f * PI.toFloat())
-                currentRotationAngle %= (2f * PI.toFloat())
-                if (frameCount % 60 == 0) { // Log once per second
-                    Log.d(TAG, "withFrameNanos elapsedTime: $elapsedTimeNanos, angle: $currentRotationAngle")
-                }
-                frameCount++
-            }
-        }
-    }
-    */
-
-
-    // LaunchedEffect to update the hour text every quarter hour (same as before)
-    LaunchedEffect(Unit) {
-        Log.d(TAG, "Quarter-hour text update effect started.")
         while (true) {
             val now = LocalTime.now()
-            val newHourText = now.format(hourFormatter)
-            if (newHourText != currentHourText) {
-                Log.d(TAG, "Updating hour text from $currentHourText to $newHourText")
-                currentHourText = newHourText
-            }
+            val currentHour = now.hour
 
-
-            val currentMinute = now.minute
-            val currentSecond = now.second
-            val currentNano = now.nano
-
-            val minutesToNextQuarterHour: Int = when {
-                currentMinute < 15 -> 15 - currentMinute
-                currentMinute < 30 -> 30 - currentMinute
-                currentMinute < 45 -> 45 - currentMinute
-                else -> (60 - currentMinute)
-            }
-
-            var delayMillis = minutesToNextQuarterHour * 60L * 1000L
-            delayMillis -= currentSecond * 1000L
-            delayMillis -= currentNano / 1_000_000L
-
-            if (delayMillis <= 0) {
-                if (currentMinute % 15 == 0 && currentSecond == 0 && currentNano == 0) {
-                    delayMillis = 15 * 60 * 1000L
-                } else {
-                    val minutesPastLastQuarter = currentMinute % 15
-                    val minutesToWaitFor = 15 - minutesPastLastQuarter
-                    var nextDelayMillis = minutesToWaitFor * 60L * 1000L
-                    nextDelayMillis -= currentSecond * 1000L // Re-subtract current seconds for the adjusted wait
-                    nextDelayMillis -= currentNano / 1_000_000L // Re-subtract current nanos
-                    if (nextDelayMillis <= 0) { // If still non-positive, means we are at the very end of a 15-min block
-                        nextDelayMillis = 15 * 60 * 1000L // wait for the next full 15 min slot
-                    }
-                    delayMillis = nextDelayMillis
+            if (currentHour != lastRotatedHour) {
+                Log.d(TAG, "Rotating to new hour: $currentHour")
+                currentRotationAngle = calculateAngleForHour(currentHour)
+                lastRotatedHour = currentHour
+            } else {
+                val updatedText = now.format(hourFormatter)
+                if (updatedText != currentHourText) {
+                    currentHourText = updatedText
                 }
             }
-            Log.d(TAG, "Text update: Next delayMillis: $delayMillis for $minutesToNextQuarterHour min (approx)")
+
+            val nextHour = now.plusHours(1).truncatedTo(ChronoUnit.HOURS)
+            var delayMillis = ChronoUnit.MILLIS.between(now, nextHour)
+
+            if (delayMillis <= 0) {
+                delayMillis = 1000L
+            }
+            Log.d(TAG, "Next hourly check/update in $delayMillis ms (target: $nextHour)")
             delay(delayMillis)
         }
     }
@@ -191,9 +167,18 @@ fun RotatingSpiralWithHour() {
 
         drawPath(path = path, color = spiralColor, style = Stroke(width = 4f))
 
-        val textX = canvasCenter.x
-        val textY = canvasCenter.y + textPaint.textSize / 3f
-        drawContext.canvas.nativeCanvas.drawText(currentHourText, textX, textY, textPaint)
+        val tipTextRadius = maxRadius - textPaint.textSize * 0.08f
+        val tipTextX = canvasCenter.x + tipTextRadius * cos(currentRotationAngle)
+        val tipTextY = canvasCenter.y + tipTextRadius * sin(currentRotationAngle)
+
+        val centeredTextTipY = tipTextY + textPaint.textSize / 3f
+
+        drawContext.canvas.nativeCanvas.drawText(
+            currentHourText,
+            tipTextX,
+            centeredTextTipY,
+            textPaint
+        )
     }
 }
 

@@ -73,8 +73,8 @@ private const val MAX_HISTORY_DEPTH = 256 // Current + 'x' previous hours
 private const val PATH_ANGLE_STEP_BACK_PER_ITEM = PI.toFloat() / 24f // Angular distance on spiral's path between hours
 private val FONT_SIZES_HISTORY = listOf(32f, 26f, 20f, 14f) // Descending font sizes
 private const val CURRENT_TIME_FONT_SIZE = 54f // Font size for the current time (index 0)
-private const val HISTORY_START_FONT_SIZE = 28f // Font size for the current time (index 0)
-private const val HISTORY_END_FONT_SIZE = 12f   // Minimum font size for the oldest visible items
+private const val HISTORY_START_FONT_SIZE = 14f // Font size for the current time (index 0)
+private const val HISTORY_END_FONT_SIZE = 1f   // Minimum font size for the oldest visible items
 private const val TEXT_INSET_FACTOR = 0.8f // Factor for how much to inset text from exact radius
 
 /**

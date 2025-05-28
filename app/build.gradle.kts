@@ -41,9 +41,15 @@ android {
 }
 
 dependencies {
-    implementation("androidx.wear.watchface:watchface:$wearWatchfaceVersion")
-    implementation("androidx.wear.watchface:watchface-data:$wearWatchfaceVersion")
-    implementation("androidx.wear.watchface:watchface-style:$wearWatchfaceVersion")
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.compose)
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.wear.compose.tooling)
+    implementation(libs.androidx.wear.watchface.ktx)
+    implementation(libs.androidx.wear.watchface.complications)
+    implementation(libs.androidx.wear.watchface.style)
+    implementation(libs.androidx.wear.watchface.compose)
 
     implementation(libs.play.services.wearable)
     implementation(platform(libs.compose.bom))

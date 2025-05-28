@@ -69,9 +69,12 @@ private val hourFormatter = DateTimeFormatter.ofPattern("H")
 private const val TAG = "SpiralDebug"
 
 // History display parameters
-private const val MAX_HISTORY_DEPTH = 256 // Current + 'x' previous hours
+private const val MAX_HISTORY_DEPTH = 512 // Current + 'x' previous hours
 private const val PATH_ANGLE_STEP_BACK_PER_ITEM = PI.toFloat() / 24f // Angular distance on spiral's path between hours
 private val FONT_SIZES_HISTORY = listOf(32f, 26f, 20f, 14f) // Descending font sizes
+private const val CURRENT_TIME_FONT_SIZE = 50f // Font size for the current time (index 0)
+private const val HISTORY_START_FONT_SIZE = 14f // Font size for the current time (index 0)
+private const val HISTORY_END_FONT_SIZE = 1f   // Minimum font size for the oldest visible items
 private const val TEXT_INSET_FACTOR = 0.8f // Factor for how much to inset text from exact radius
 
 /**
@@ -112,8 +115,11 @@ fun RotatingSpiralWithMinute() {
     val currentItemTextColor = MaterialTheme.colors.onBackground
     val previousItemTextColor = MaterialTheme.colors.primary.copy(alpha = 0.7f)
 
-    val coils = 5f
+    val coils = 10f
     val spiralOwnAngleAtEnd = remember(coils) { coils * 2f * PI.toFloat() }
+    val maxDisplayableHistoryItems = remember(spiralOwnAngleAtEnd, PATH_ANGLE_STEP_BACK_PER_ITEM) {
+        (spiralOwnAngleAtEnd / PATH_ANGLE_STEP_BACK_PER_ITEM).toInt().coerceAtLeast(1)
+    }
 
     // --- State variables ---
     var spiralBaseRotationForDrawing by remember {
@@ -254,13 +260,32 @@ fun RotatingSpiralWithMinute() {
                 return@forEachIndexed
             }
 
+            //val progression = (index.toFloat() / maxDisplayableHistoryItems.toFloat()).coerceIn(0f, 1f)
+            //val calculatedFontSize = HISTORY_START_FONT_SIZE - (progression * (HISTORY_START_FONT_SIZE - HISTORY_END_FONT_SIZE))
+            //val currentItemFontSize = calculatedFontSize.coerceAtLeast(HISTORY_END_FONT_SIZE)
+
+            val currentItemFontSize: Float
+            if (index == 0) {
+                currentItemFontSize = CURRENT_TIME_FONT_SIZE
+            } else {
+                // Taper for history items (index 1 onwards)
+                // Ensure maxDisplayableHistoryItems is at least 1 for this calculation if history has items
+                val historyItemCountForTaper = (maxDisplayableHistoryItems - 1).coerceAtLeast(1)
+                // Progression for history items (0 for index 1, up to nearly 1 for the last displayable history item)
+                val progression = ((index - 1).toFloat() / historyItemCountForTaper.toFloat()).coerceIn(0f, 1f)
+                val calculatedSize = HISTORY_START_FONT_SIZE - (progression * (HISTORY_START_FONT_SIZE - HISTORY_END_FONT_SIZE))
+                currentItemFontSize = calculatedSize.coerceAtLeast(HISTORY_END_FONT_SIZE)
+            }
+            textPaint.textSize = currentItemFontSize
+            textPaint.textSize = currentItemFontSize
+
             val radiusToUse = if (index == 0) {
                 maxRadius - (FONT_SIZES_HISTORY[0] * TEXT_INSET_FACTOR / 2f)
             } else {
                 (currentPathAngleOnSpiral / (2 * PI.toFloat())) * (maxRadius / coils)
             }
 
-            val currentItemFontSize = FONT_SIZES_HISTORY.getOrElse(index) { FONT_SIZES_HISTORY.last() }
+            // val currentItemFontSize = FONT_SIZES_HISTORY.getOrElse(index) { FONT_SIZES_HISTORY.last() }
             textPaint.textSize = currentItemFontSize
             textPaint.color = if (index == 0) currentItemTextColor.toArgb() else previousItemTextColor.toArgb()
 

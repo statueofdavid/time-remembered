@@ -75,11 +75,11 @@ private const val TEXT_INSET_FACTOR = 0.8f // Factor for how much to inset text 
 
 private val FONT_SIZES_HISTORY = listOf(32f, 26f, 20f, 14f) // Descending font sizes
 private const val CURRENT_TIME_FONT_SIZE = 50f // Font size for the current time (index 0)
-private const val HISTORY_START_FONT_SIZE = 20f // Font size for the current time (index 0)
+private const val HISTORY_START_FONT_SIZE = 24f // Font size for the current time (index 0)
 private const val HISTORY_END_FONT_SIZE = 1f   // Minimum font size for the oldest visible items
 
 private const val CURRENT_TIME_ALPHA = 2.0f       // Current time is fully opaque
-private const val HISTORY_START_ALPHA = 0.95f     // Alpha for the *first* historical item (index 1)
+private const val HISTORY_START_ALPHA = 0.85f     // Alpha for the *first* historical item (index 1)
 private const val HISTORY_END_ALPHA = 0.005f       // Minimum alpha for the oldest items (almost transparent)
 
 /**
@@ -120,7 +120,7 @@ fun RotatingSpiralWithMinute() {
     val currentItemTextColor = MaterialTheme.colors.onBackground
     val previousItemTextColor = MaterialTheme.colors.primary.copy(alpha = 0.7f)
 
-    val coils = 10f
+    val coils = 3f
     val spiralOwnAngleAtEnd = remember(coils) { coils * 2f * PI.toFloat() }
     val maxDisplayableHistoryItems = remember(spiralOwnAngleAtEnd, PATH_ANGLE_STEP_BACK_PER_ITEM) {
         (spiralOwnAngleAtEnd / PATH_ANGLE_STEP_BACK_PER_ITEM).toInt().coerceAtLeast(1)
@@ -207,6 +207,8 @@ fun RotatingSpiralWithMinute() {
         }
     }
 
+    val basePreviousItemTextColor = MaterialTheme.colors.primary // Opaque base for history
+
     val textPaint = remember {
         Paint().apply {
             isAntiAlias = true
@@ -214,28 +216,17 @@ fun RotatingSpiralWithMinute() {
         }
     }
 
-    // --- Canvas Drawing Logic (largely the same, uses updated state/constants) ---
     Canvas(modifier = Modifier.fillMaxSize()) {
-        // ... (Log, path, canvasCenter, maxRadius, angleStep, pathAngle, currentRadius assignments) ...
-        // The Canvas drawing part from your last provided code can remain,
-        // as it already uses the state variables (like timeTextHistory, currentTargetDialAngle,
-        // spiralBaseRotationForDrawing) and constants (FONT_SIZES_HISTORY, etc.)
-        // that we've just updated/renamed.
-
-        // Make sure to use `timeTextHistory` instead of `hourTextHistory` in the loop.
-        // And `currentItemTextColor` / `previousItemTextColor` for colors.
-        // And `PATH_ANGLE_STEP_BACK_PER_ITEM`.
-
         Log.d(TAG, "Canvas recomposing/redrawing. Rotation: $spiralBaseRotationForDrawing")
         val path = Path()
         val canvasCenter = this.center
         val maxRadius = size.minDimension / 2 * 0.8f
         val angleStep = 0.1f
-        var pAngle = 0f // Renamed to avoid conflict if pathAngle from outer scope was an issue
-        var cRadius = 0f // Renamed for clarity
+        var pAngle = 0f
+        var cRadius = 0f
 
+        // 1. Draw the spiral path first
         path.moveTo(canvasCenter.x, canvasCenter.y)
-
         while (cRadius < maxRadius) {
             cRadius = (pAngle / (2 * PI.toFloat())) * (maxRadius / coils)
             if (cRadius > maxRadius) cRadius = maxRadius
@@ -249,87 +240,66 @@ fun RotatingSpiralWithMinute() {
 
         Log.d(TAG, "CANVAS: timeTextHistory = $timeTextHistory")
 
-        timeTextHistory.forEachIndexed { index, timeStr -> // Use timeTextHistory
-            Log.d(TAG, "CANVAS LOOP: Index $index, Text '$timeStr'")
+        // 2. Draw HISTORICAL items first (index 1 up to MAX_HISTORY_DEPTH - 1)
+        timeTextHistory.forEachIndexed { index, timeStr ->
+            if (index == 0) return@forEachIndexed // Skip current time in this loop, draw it later
 
-            if (timeStr.isBlank()) {
-                Log.d(TAG, "Skipping blank string for index $index")
-                return@forEachIndexed
-            }
+            Log.d(TAG, "CANVAS LOOP (History): Index $index, Text '$timeStr'")
+            if (timeStr.isBlank()) { /* ... */ return@forEachIndexed }
 
-            val currentPathAngleOnSpiral =
-                spiralOwnAngleAtEnd - (index * PATH_ANGLE_STEP_BACK_PER_ITEM) // Use new constant name
+            val currentPathAngleOnSpiral = spiralOwnAngleAtEnd - (index * PATH_ANGLE_STEP_BACK_PER_ITEM)
+            if (currentPathAngleOnSpiral < 0.01f) { /* ... */ return@forEachIndexed } // No need for && index > 0 here
 
-            if (currentPathAngleOnSpiral < 0.01f && index > 0) {
-                Log.d(TAG, "Skipping history item $index ($timeStr) because pathAngle too small: $currentPathAngleOnSpiral")
-                return@forEachIndexed
-            }
-
-            //val progression = (index.toFloat() / maxDisplayableHistoryItems.toFloat()).coerceIn(0f, 1f)
-            //val calculatedFontSize = HISTORY_START_FONT_SIZE - (progression * (HISTORY_START_FONT_SIZE - HISTORY_END_FONT_SIZE))
-            //val currentItemFontSize = calculatedFontSize.coerceAtLeast(HISTORY_END_FONT_SIZE)
-
-            val currentItemFontSize: Float
-            if (index == 0) {
-                currentItemFontSize = CURRENT_TIME_FONT_SIZE
-            } else {
-                // Taper for history items (index 1 onwards)
-                // Ensure maxDisplayableHistoryItems is at least 1 for this calculation if history has items
-                val historyItemCountForTaper = (maxDisplayableHistoryItems - 1).coerceAtLeast(1)
-                // Progression for history items (0 for index 1, up to nearly 1 for the last displayable history item)
-                val progression = ((index - 1).toFloat() / historyItemCountForTaper.toFloat()).coerceIn(0f, 1f)
-                val calculatedSize = HISTORY_START_FONT_SIZE - (progression * (HISTORY_START_FONT_SIZE - HISTORY_END_FONT_SIZE))
-                currentItemFontSize = calculatedSize.coerceAtLeast(HISTORY_END_FONT_SIZE)
-            }
-            textPaint.textSize = currentItemFontSize
+            // Font Size for history
+            val historyItemCountForTaper = (maxDisplayableHistoryItems - 1).coerceAtLeast(1)
+            val progression = ((index - 1).toFloat() / historyItemCountForTaper.toFloat()).coerceIn(0f, 1f)
+            val calculatedSize = HISTORY_START_FONT_SIZE - (progression * (HISTORY_START_FONT_SIZE - HISTORY_END_FONT_SIZE))
+            val currentItemFontSize = calculatedSize.coerceAtLeast(HISTORY_END_FONT_SIZE)
             textPaint.textSize = currentItemFontSize
 
-            val radiusToUse = if (index == 0) {
-                maxRadius - (FONT_SIZES_HISTORY[0] * TEXT_INSET_FACTOR / 2f)
-            } else {
-                (currentPathAngleOnSpiral / (2 * PI.toFloat())) * (maxRadius / coils)
-            }
+            // Alpha for history
+            val calculatedAlpha = HISTORY_START_ALPHA - (progression * (HISTORY_START_ALPHA - HISTORY_END_ALPHA))
+            val currentItemAlpha = calculatedAlpha.coerceAtLeast(HISTORY_END_ALPHA)
 
-            // val currentItemFontSize = FONT_SIZES_HISTORY.getOrElse(index) { FONT_SIZES_HISTORY.last() }
-            textPaint.textSize = currentItemFontSize
-
-
-            val currentItemAlpha: Float = if (index == 0) {
-                CURRENT_TIME_ALPHA
-            } else {
-                // Ensure maxDisplayableHistoryItems is at least 1 for this calculation if history has items
-                val historyItemCountForTaper = (maxDisplayableHistoryItems - 1).coerceAtLeast(1)
-                // Progression for history items (0 for index 1, up to nearly 1 for the last displayable history item)
-                val progression = ((index - 1).toFloat() / historyItemCountForTaper.toFloat()).coerceIn(0f, 1f)
-                val calculatedAlpha = HISTORY_START_ALPHA - (progression * (HISTORY_START_ALPHA - HISTORY_END_ALPHA))
-                calculatedAlpha.coerceAtLeast(HISTORY_END_ALPHA)
-            }
-            // --- End of NEW: Alpha Calculation ---
-
-            // Determine base color and apply calculated alpha
-            val baseColor = if (index == 0) currentItemTextColor else previousItemTextColor
-            val colorWithAlpha = baseColor.copy(alpha = currentItemAlpha)
+            val colorWithAlpha = basePreviousItemTextColor.copy(alpha = currentItemAlpha)
             textPaint.color = colorWithAlpha.toArgb()
 
-            if (radiusToUse < currentItemFontSize / 2f && index > 0) {
-                Log.d(TAG, "Skipping history item $index ($timeStr) due to small radius: $radiusToUse vs font: $currentItemFontSize")
-                return@forEachIndexed
-            }
+            val radiusToUse = (currentPathAngleOnSpiral / (2 * PI.toFloat())) * (maxRadius / coils)
+            if (radiusToUse < currentItemFontSize / 2f) { /* ... */ return@forEachIndexed }
 
-            val screenAngleToUse = if (index == 0) {
-                currentTargetDialAngle
-            } else {
-                currentPathAngleOnSpiral + spiralBaseRotationForDrawing
-            }
+            val screenAngleToUse = currentPathAngleOnSpiral + spiralBaseRotationForDrawing
 
             val textX = canvasCenter.x + radiusToUse * cos(screenAngleToUse)
             val textY = canvasCenter.y + radiusToUse * sin(screenAngleToUse)
             val centeredTextY = textY + textPaint.textSize / 3f
 
-            Log.d(TAG, "Drawing: '$timeStr' (idx $index) at (X:${String.format("%.1f",textX)}, Y:${String.format("%.1f",centeredTextY)}) R:${String.format("%.1f",radiusToUse)} SA:${String.format("%.2f",screenAngleToUse)} Font:${textPaint.textSize}")
+            Log.d(TAG, "Drawing History: '$timeStr' (idx $index) R:${String.format("%.1f",radiusToUse)} SA:${String.format("%.2f",screenAngleToUse)} Font:${textPaint.textSize} Alpha:${String.format("%.2f",currentItemAlpha)}")
             drawContext.canvas.nativeCanvas.drawText(timeStr, textX, centeredTextY, textPaint)
         }
-        Log.d(TAG, "CANVAS: Finished text loop.")
+
+        // 3. Draw CURRENT time last (index 0) to ensure it's on top
+        if (timeTextHistory.isNotEmpty()) {
+            val currentTimeStr = timeTextHistory[0]
+            if (!currentTimeStr.isBlank()) {
+                Log.d(TAG, "CANVAS (Current Time): Text '$currentTimeStr'")
+
+                textPaint.textSize = CURRENT_TIME_FONT_SIZE
+                val colorWithAlpha = currentItemTextColor.copy(alpha = CURRENT_TIME_ALPHA) // currentItemTextColor is base
+                textPaint.color = colorWithAlpha.toArgb()
+
+                val radiusToUse = maxRadius - (CURRENT_TIME_FONT_SIZE * TEXT_INSET_FACTOR / 2f)
+                // screenAngleToUse for current time is currentTargetDialAngle
+                val screenAngleToUse = currentTargetDialAngle
+
+                val textX = canvasCenter.x + radiusToUse * cos(screenAngleToUse)
+                val textY = canvasCenter.y + radiusToUse * sin(screenAngleToUse)
+                val centeredTextY = textY + textPaint.textSize / 3f
+
+                Log.d(TAG, "Drawing Current: '$currentTimeStr' (idx 0) R:${String.format("%.1f",radiusToUse)} SA:${String.format("%.2f",screenAngleToUse)} Font:${textPaint.textSize} Alpha:${String.format("%.2f",CURRENT_TIME_ALPHA)}")
+                drawContext.canvas.nativeCanvas.drawText(currentTimeStr, textX, centeredTextY, textPaint)
+            }
+        }
+        Log.d(TAG, "CANVAS: Finished drawing all text.")
     }
 }
 

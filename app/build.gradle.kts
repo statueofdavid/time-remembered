@@ -4,16 +4,14 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-val wearWatchfaceVersion = "1.2.1"
-
 android {
     namespace = "space.declared"
     compileSdk = 35
 
     defaultConfig {
         applicationId = "space.declared"
-        minSdk = 35
-        targetSdk = 35
+        minSdk = 30
+        targetSdk = 33
         versionCode = 1
         versionName = "1.0"
 
@@ -41,16 +39,6 @@ android {
 }
 
 dependencies {
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.lifecycle.compose)
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.wear.compose.tooling)
-    implementation(libs.androidx.wear.watchface.ktx)
-    implementation(libs.androidx.wear.watchface.complications)
-    implementation(libs.androidx.wear.watchface.style)
-    implementation(libs.androidx.wear.watchface.compose)
-
     implementation(libs.play.services.wearable)
     implementation(platform(libs.compose.bom))
     implementation(libs.ui)

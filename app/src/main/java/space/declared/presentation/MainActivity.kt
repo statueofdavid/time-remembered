@@ -28,16 +28,15 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.wear.compose.material.MaterialTheme
 import androidx.wear.tooling.preview.devices.WearDevices
-import kotlinx.coroutines.delay // Still needed for both effects
+import kotlinx.coroutines.delay
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
-// import java.time.temporal.ChronoUnit // Not used in this simplified version
+import java.time.temporal.ChronoUnit
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
 import space.declared.presentation.theme.TimeRememberedTheme
-import java.time.temporal.ChronoUnit
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,6 +80,7 @@ private const val HISTORY_END_FONT_SIZE = 1f   // Minimum font size for the olde
 private const val CURRENT_TIME_ALPHA = 2.0f       // Current time is fully opaque
 private const val HISTORY_START_ALPHA = 0.85f     // Alpha for the *first* historical item (index 1)
 private const val HISTORY_END_ALPHA = 0.005f       // Minimum alpha for the oldest items (almost transparent)
+private const val COILS = 3f
 
 /**
  * Calculates the rotation angle for the spiral's tip to point at the given minute
@@ -120,8 +120,7 @@ fun RotatingSpiralWithMinute() {
     val currentItemTextColor = MaterialTheme.colors.onBackground
     val previousItemTextColor = MaterialTheme.colors.primary.copy(alpha = 0.7f)
 
-    val coils = 3f
-    val spiralOwnAngleAtEnd = remember(coils) { coils * 2f * PI.toFloat() }
+    val spiralOwnAngleAtEnd = remember(COILS) { COILS * 2f * PI.toFloat() }
     val maxDisplayableHistoryItems = remember(spiralOwnAngleAtEnd, PATH_ANGLE_STEP_BACK_PER_ITEM) {
         (spiralOwnAngleAtEnd / PATH_ANGLE_STEP_BACK_PER_ITEM).toInt().coerceAtLeast(1)
     }
@@ -228,7 +227,7 @@ fun RotatingSpiralWithMinute() {
         // 1. Draw the spiral path first
         path.moveTo(canvasCenter.x, canvasCenter.y)
         while (cRadius < maxRadius) {
-            cRadius = (pAngle / (2 * PI.toFloat())) * (maxRadius / coils)
+            cRadius = (pAngle / (2 * PI.toFloat())) * (maxRadius / COILS)
             if (cRadius > maxRadius) cRadius = maxRadius
             val effectiveAngle = pAngle + spiralBaseRotationForDrawing
             val x = canvasCenter.x + cRadius * cos(effectiveAngle)
@@ -264,7 +263,7 @@ fun RotatingSpiralWithMinute() {
             val colorWithAlpha = basePreviousItemTextColor.copy(alpha = currentItemAlpha)
             textPaint.color = colorWithAlpha.toArgb()
 
-            val radiusToUse = (currentPathAngleOnSpiral / (2 * PI.toFloat())) * (maxRadius / coils)
+            val radiusToUse = (currentPathAngleOnSpiral / (2 * PI.toFloat())) * (maxRadius / COILS)
             if (radiusToUse < currentItemFontSize / 2f) { /* ... */ return@forEachIndexed }
 
             val screenAngleToUse = currentPathAngleOnSpiral + spiralBaseRotationForDrawing
@@ -309,8 +308,7 @@ fun RotatingSpiralWithHour() {
     val currentHourTextColor = MaterialTheme.colors.onBackground
     val previousHourTextColor = MaterialTheme.colors.primary.copy(alpha = 0.7f)
 
-    val coils = 5f
-    val spiralOwnAngleAtEnd = remember(coils) { coils * 2f * PI.toFloat() }
+    val spiralOwnAngleAtEnd = remember(COILS) { COILS * 2f * PI.toFloat() }
 
     var spiralBaseRotationForDrawing by remember {
         val initialTargetDialAngle = calculateAngleForHour(LocalTime.now().hour)
@@ -391,7 +389,7 @@ fun RotatingSpiralWithHour() {
         path.moveTo(canvasCenter.x, canvasCenter.y)
 
         while (currentRadius < maxRadius) {
-            currentRadius = (pathAngle / (2 * PI.toFloat())) * (maxRadius / coils)
+            currentRadius = (pathAngle / (2 * PI.toFloat())) * (maxRadius / COILS)
             if (currentRadius > maxRadius) currentRadius = maxRadius
             val effectiveAngle = pathAngle + spiralBaseRotationForDrawing
             val x = canvasCenter.x + currentRadius * cos(effectiveAngle)
@@ -413,7 +411,7 @@ fun RotatingSpiralWithHour() {
             val radiusToUse = if (index == 0) { // Current hour at/near maxRadius
                 maxRadius - (FONT_SIZES_HISTORY[0] * TEXT_INSET_FACTOR / 2f) // Inset from edge
             } else {
-                (currentPathAngleOnSpiral / (2 * PI.toFloat())) * (maxRadius / coils)
+                (currentPathAngleOnSpiral / (2 * PI.toFloat())) * (maxRadius / COILS)
             }
 
             val currentItemFontSize = FONT_SIZES_HISTORY.getOrElse(index) { FONT_SIZES_HISTORY.last() }
